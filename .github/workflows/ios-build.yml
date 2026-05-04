@@ -1,0 +1,50 @@
+name: Build Unsigned iOS IPA
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build TaskPlanner IPA
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: |
+          cd TaskPlanner
+          xcodegen generate
+
+      - name: Build and Archive
+        run: |
+          cd TaskPlanner
+          xcodebuild archive \
+            -project TaskPlanner.xcodeproj \
+            -scheme TaskPlanner \
+            -archivePath unsigned.xcarchive \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            -destination "generic/platform=iOS"
+
+      - name: Package into IPA
+        run: |
+          cd TaskPlanner
+          mkdir -p Payload
+          cp -r unsigned.xcarchive/Products/Applications/*.app Payload/
+          zip -r TaskPlanner.ipa Payload
+          rm -rf Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskPlanner-IPA
+          path: TaskPlanner/TaskPlanner.ipa
